@@ -1,1 +1,51 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swipe Share</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #121212; color: white; font-family: sans-serif; overflow: hidden; }
+        #photo {
+            width: 250px; height: 350px; background: url('https://picsum.photos/250/350') center/cover;
+            border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease, opacity 0.3s; touch-action: none;
+        }
+        .status { position: absolute; top: 20px; font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="status" id="status">Menunggu koneksi...</div>
+    <div id="photo"></div>
 
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io("https://p2p-swipe-server.glitch.me"); // Server perantara gratis
+        const photo = document.getElementById('photo');
+        let startX;
+
+        // Mendeteksi Geser (Swipe)
+        photo.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+        photo.addEventListener('touchmove', e => {
+            let moveX = e.touches[0].clientX - startX;
+            if (moveX > 0) photo.style.transform = `translateX(${moveX}px) rotate(${moveX/10}deg)`;
+            
+            if (moveX > 200) { // Jika digeser jauh ke kanan
+                photo.style.opacity = "0";
+                socket.emit('kirim-gambar', { id: 'user123', action: 'muncul' });
+                document.getElementById('status').innerText = "Gambar Terkirim!";
+            }
+        });
+
+        // Mendengarkan jika ada kiriman masuk
+        socket.on('terima-gambar', (data) => {
+            photo.style.transform = "translateX(-100%)"; // Mulai dari kiri luar layar
+            photo.style.opacity = "1";
+            setTimeout(() => {
+                photo.style.transform = "translateX(0) rotate(0deg)"; // Masuk ke tengah
+                document.getElementById('status').innerText = "Gambar Masuk!";
+            }, 100);
+        });
+    </script>
+</body>
+</html>
