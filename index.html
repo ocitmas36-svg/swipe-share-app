@@ -2,73 +2,136 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Swipe P2P Share</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SwipeShare P2P - @ya_rositt</title>
     <style>
-        body { margin: 0; background: #121212; color: white; font-family: sans-serif; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #photo { width: 200px; height: 300px; background: #3498db; border-radius: 15px; transition: 0.3s; touch-action: none; display: none; }
-        .info { margin-bottom: 20px; font-size: 14px; }
-        input { padding: 10px; border-radius: 5px; border: none; margin-bottom: 10px; }
-        button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; }
+        body { margin: 0; background: #1a1a1a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        
+        /* Tampilan Foto */
+        #photo { 
+            width: 280px; height: 400px; 
+            background: #333; border: 4px solid #fff; 
+            border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: none; position: relative; cursor: grab;
+            background-size: cover; background-position: center;
+            touch-action: none;
+        }
+
+        /* Panel Setup */
+        #setup { background: #2c3e50; padding: 20px; border-radius: 15px; text-align: center; width: 80%; max-width: 300px; }
+        input[type="text"] { width: 90%; padding: 10px; margin: 10px 0; border-radius: 8px; border: none; }
+        button { background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
+        
+        /* Status */
+        #status { margin-top: 15px; font-size: 0.9em; color: #ecf0f1; }
+        .id-badge { background: #e67e22; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+        
+        #fileBtn { margin-top: 20px; background: #2980b9; }
     </style>
 </head>
 <body>
+
     <div id="setup">
-        <p>ID Kamu: <b id="my-id">...</b></p>
-        <input type="text" id="target-id" placeholder="Masukkan ID HP sebelah">
-        <button onclick="connectToPeer()">Hubungkan</button>
+        <h3>Swipe Share</h3>
+        <p>ID Kamu: <span id="my-id" class="id-badge">...</span></p>
+        <input type="text" id="target-id" placeholder="Masukkan ID HP Teman">
+        <button onclick="connectToPeer()">HUBUNGKAN</button>
+        <p id="status">Menunggu ID...</p>
     </div>
 
     <div id="photo"></div>
-    <p id="status">Siap Menghubungkan...</p>
+    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    <button id="fileBtn" style="display: none;" onclick="document.getElementById('fileInput').click()">PILIH FOTO</button>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script>
-        const peer = new Peer(); // Membuat ID otomatis
+        const peer = new Peer();
         let conn;
         const photo = document.getElementById('photo');
+        const statusText = document.getElementById('status');
+        const fileInput = document.getElementById('fileInput');
 
-        // Tampilkan ID kita sendiri
-        peer.on('open', id => { document.getElementById('my-id').innerText = id; });
+        // 1. Dapatkan ID Sendiri
+        peer.on('open', id => {
+            document.getElementById('my-id').innerText = id;
+            statusText.innerText = "Siap menghubungkan...";
+        });
 
-        // Fungsi menghubungkan ke HP sebelah
+        // 2. Fungsi Hubungkan (Pihak Pengirim)
         function connectToPeer() {
             const targetId = document.getElementById('target-id').value;
+            if(!targetId) return alert("Masukkan ID dulu!");
             conn = peer.connect(targetId);
             setupConnection();
         }
 
-        // Menerima koneksi dari HP sebelah
+        // 3. Terima Koneksi (Pihak Penerima)
         peer.on('connection', (c) => {
             conn = c;
             setupConnection();
         });
 
         function setupConnection() {
-            document.getElementById('setup').style.display = 'none';
-            photo.style.display = 'block';
-            document.getElementById('status').innerText = "Terhubung!";
+            conn.on('open', () => {
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('fileBtn').style.display = 'block';
+                photo.style.display = 'block';
+                statusText.innerText = "Terhubung! Pilih foto lalu geser ke kanan.";
+            });
 
-            conn.on('data', (data) => {
-                if(data === 'muncul') {
-                    photo.style.transform = "translateX(-150%)";
+            // Mendengarkan Data Masuk
+            conn.on('data', (payload) => {
+                if(payload.type === 'gambar') {
+                    photo.style.backgroundImage = `url(${payload.data})`;
+                    photo.style.transition = "none";
+                    photo.style.transform = "translateX(-150%) rotate(-10deg)";
                     photo.style.opacity = "1";
-                    setTimeout(() => { photo.style.transform = "translateX(0)"; }, 50);
+                    
+                    setTimeout(() => {
+                        photo.style.transition = "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+                        photo.style.transform = "translateX(0) rotate(0deg)";
+                    }, 50);
                 }
             });
         }
 
-        // Logika Geser
+        // 4. Pilih Foto dari Galeri
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                photo.style.backgroundImage = `url(${event.target.result})`;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // 5. Logika Geser (Swipe)
         let startX;
-        photo.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+        photo.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX;
+            photo.style.transition = "none";
+        });
+
         photo.addEventListener('touchmove', e => {
             let moveX = e.touches[0].clientX - startX;
-            if (moveX > 0) photo.style.transform = `translateX(${moveX}px)`;
-            if (moveX > 150 && conn) {
+            if (moveX > 0) {
+                photo.style.transform = `translateX(${moveX}px) rotate(${moveX/15}deg)`;
+            }
+            
+            if (moveX > 180) { // Threshold kirim
                 photo.style.opacity = "0";
-                conn.send('muncul');
+                const bg = photo.style.backgroundImage;
+                const base64Data = bg.slice(5, -2); // Ambil string base64 saja
+                if(conn) conn.send({ type: 'gambar', data: base64Data });
+            }
+        });
+
+        photo.addEventListener('touchend', () => {
+            if (photo.style.opacity !== "0") {
+                photo.style.transition = "transform 0.3s";
+                photo.style.transform = "translateX(0) rotate(0deg)";
             }
         });
     </script>
 </body>
-</html>
+    </html>
